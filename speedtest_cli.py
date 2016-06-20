@@ -11,7 +11,7 @@
 #
 #    Unless required by applicable law or agreed to in writing, software
 #    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    WARRANTIES or CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
@@ -32,7 +32,9 @@ user_agent = None
 source = None
 shutdown_event = None
 scheme = 'http'
-
+ping = None
+download = None
+upload = None
 
 # Used for bound_interface
 socket_socket = socket.socket
@@ -579,6 +581,9 @@ def speedtest():
     parser.add_argument('--simple', action='store_true',
                         help='Suppress verbose output, only show basic '
                              'information')
+    parser.add_argument('--collect', action='store_true',
+                        help='Basic format for collectd data ')
+                             'pingLatency/ms DLspeed/Mbps UPspeed/Mbps'
     parser.add_argument('--list', action='store_true',
                         help='Display a list of speedtest.net servers '
                              'sorted by distance')
@@ -617,7 +622,7 @@ def speedtest():
     if args.secure:
         scheme = 'https'
 
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_('Retrieving speedtest.net configuration...')
     try:
         config = getConfig()
@@ -625,7 +630,7 @@ def speedtest():
         print_('Cannot retrieve speedtest configuration')
         sys.exit(1)
 
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_('Retrieving speedtest.net server list...')
     if args.list or args.server:
         servers = closestServers(config['client'], True)
@@ -640,7 +645,7 @@ def speedtest():
     else:
         servers = closestServers(config['client'])
 
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_('Testing from %(isp)s (%(ip)s)...' % config['client'])
 
     if args.server:
@@ -698,15 +703,17 @@ def speedtest():
         except:
             best = servers[0]
     else:
-        if not args.simple:
+        if not (args.simple or args.collect):
             print_('Selecting best server based on latency...')
         best = getBestServer(servers)
 
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_(('Hosted by %(sponsor)s (%(name)s) [%(d)0.2f km]: '
                '%(latency)s ms' % best).encode('utf-8', 'ignore'))
-    else:
+    elif args.simple:
         print_('Ping: %(latency)s ms' % best)
+    elif args.collect:
+        ping = best['latency']
 
     sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     urls = []
@@ -714,26 +721,33 @@ def speedtest():
         for i in range(0, 4):
             urls.append('%s/random%sx%s.jpg' %
                         (os.path.dirname(best['url']), size, size))
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_('Testing download speed', end='')
-    dlspeed = downloadSpeed(urls, args.simple)
-    if not args.simple:
+    dlspeed = downloadSpeed(urls, (args.simple or args.collect))
+    if not (args.simple or args.collect):
         print_()
-    print_('Download: %0.2f M%s/s' %
-           ((dlspeed / 1000 / 1000) * args.units[1], args.units[0]))
+    if args.collect:
+        download = (dlspeed / 1000 / 1000) * args.units[1]
+    else:
+        print_('Download: %0.2f M%s/s' %
+               ((dlspeed / 1000 / 1000) * args.units[1], args.units[0]))
 
     sizesizes = [int(.25 * 1000 * 1000), int(.5 * 1000 * 1000)]
     sizes = []
     for size in sizesizes:
         for i in range(0, 25):
             sizes.append(size)
-    if not args.simple:
+    if not (args.simple or args.collect):
         print_('Testing upload speed', end='')
-    ulspeed = uploadSpeed(best['url'], sizes, args.simple)
-    if not args.simple:
+    ulspeed = uploadSpeed(best['url'], sizes, (args.simple or args.collect))
+    if not (args.simple or args.collect):
         print_()
-    print_('Upload: %0.2f M%s/s' %
-           ((ulspeed / 1000 / 1000) * args.units[1], args.units[0]))
+    if args.collect:
+        upload = (ulspeed / 1000 / 1000) * args.units[1]
+        print_('%s	%s	%s' % (ping, download, upload))
+    else:
+        print_('Upload: %0.2f M%s/s' %
+               ((ulspeed / 1000 / 1000) * args.units[1], args.units[0]))
 
     if args.share and args.mini:
         print_('Cannot generate a speedtest.net share results image while '

@@ -582,8 +582,8 @@ def speedtest():
                         help='Suppress verbose output, only show basic '
                              'information')
     parser.add_argument('--collect', action='store_true',
-                        help='Basic format for collectd data ')
-                             'pingLatency/ms DLspeed/Mbps UPspeed/Mbps'
+                        help='Basic format for collectd data '
+                             'pingLatency/ms DLspeed/Mbps UPspeed/Mbps')
     parser.add_argument('--list', action='store_true',
                         help='Display a list of speedtest.net servers '
                              'sorted by distance')
